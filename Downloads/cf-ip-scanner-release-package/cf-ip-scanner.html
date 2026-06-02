@@ -1,0 +1,535 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>اسکنر IP کلودفلر</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css">
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: Tahoma, Arial, sans-serif; background: #f5f5f5; color: #1a1a1a; padding: 20px; direction: rtl; }
+.container { max-width: 900px; margin: 0 auto; }
+h1 { font-size: 20px; font-weight: 500; margin-bottom: 1.5rem; display: flex; align-items: center; gap: 10px; }
+.badge { background: #dbeafe; color: #1e40af; font-size: 11px; padding: 2px 8px; border-radius: 20px; }
+.grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 1rem; }
+.grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 1.5rem; }
+.card { background: #fff; border: 1px solid #e5e7eb; border-radius: 10px; padding: 1rem 1.25rem; }
+.metric-card { background: #f9fafb; border-radius: 8px; padding: 0.75rem 1rem; }
+.metric-label { font-size: 12px; color: #6b7280; margin-bottom: 4px; }
+.metric-val { font-size: 22px; font-weight: 500; }
+.metric-val.green { color: #059669; }
+.metric-val.amber { color: #d97706; }
+.metric-val.blue { color: #2563eb; }
+label { font-size: 13px; color: #6b7280; display: block; margin-bottom: 6px; }
+input[type=text], input[type=number], select, textarea {
+  width: 100%; padding: 7px 10px; border: 1px solid #d1d5db; border-radius: 6px;
+  font-size: 13px; background: #fff; color: #1a1a1a; margin-bottom: 10px;
+}
+textarea { resize: vertical; font-family: monospace; }
+input[type=range] { width: 100%; cursor: pointer; }
+.section-title { font-size: 12px; font-weight: 500; color: #6b7280; margin-bottom: 10px; text-transform: uppercase; letter-spacing: 0.04em; }
+.btn-primary { background: #2563eb; color: #fff; border: none; border-radius: 6px; padding: 9px 20px; font-size: 14px; font-weight: 500; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; }
+.btn-primary:hover { background: #1d4ed8; }
+.btn-primary:disabled { opacity: 0.4; cursor: not-allowed; }
+.btn-stop { background: #fee2e2; color: #b91c1c; border: none; border-radius: 6px; padding: 9px 20px; font-size: 14px; font-weight: 500; cursor: pointer; }
+.btn-outline { background: transparent; border: 1px solid #d1d5db; border-radius: 6px; padding: 7px 14px; font-size: 13px; cursor: pointer; color: #374151; display: inline-flex; align-items: center; gap: 5px; }
+.btn-outline:hover { background: #f3f4f6; }
+.progress-bar-wrap { background: #e5e7eb; border-radius: 4px; height: 6px; overflow: hidden; margin: 8px 0; }
+.progress-bar { height: 100%; background: #2563eb; border-radius: 4px; transition: width 0.3s; }
+.log-box { background: #1e1e1e; border-radius: 6px; padding: 10px 12px; height: 130px; overflow-y: auto; font-family: monospace; font-size: 12px; color: #9ca3af; }
+.log-box .ok { color: #34d399; }
+.log-box .fail { color: #f87171; }
+.log-box .info { color: #60a5fa; }
+.results-table { width: 100%; border-collapse: collapse; font-size: 13px; table-layout: fixed; }
+.results-table th { text-align: right; padding: 8px 10px; color: #6b7280; font-weight: 500; border-bottom: 1px solid #e5e7eb; font-size: 12px; background: #f9fafb; }
+.results-table td { padding: 8px 10px; border-bottom: 1px solid #f3f4f6; }
+.results-table tr:hover td { background: #f9fafb; }
+.pill { display: inline-block; padding: 2px 8px; border-radius: 20px; font-size: 11px; font-weight: 500; }
+.pill.fast { background: #dcfce7; color: #166534; }
+.pill.med { background: #fef9c3; color: #854d0e; }
+.pill.slow { background: #fee2e2; color: #991b1b; }
+.pill.cf { background: #dbeafe; color: #1e40af; }
+.pill.noncf { background: #fce7f3; color: #9d174d; }
+.tabs { display: flex; gap: 4px; margin-bottom: 1rem; border-bottom: 1px solid #e5e7eb; }
+.tab { padding: 7px 14px; font-size: 13px; cursor: pointer; border-radius: 6px 6px 0 0; color: #6b7280; border: none; background: none; }
+.tab.active { background: #f3f4f6; color: #111827; font-weight: 500; }
+.check-group { display: flex; flex-wrap: wrap; gap: 12px; }
+.check-item { display: flex; align-items: center; gap: 6px; font-size: 13px; color: #374151; }
+.check-item input[type=checkbox] { width: auto; margin: 0; }
+.range-row { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+.range-row input[type=range] { flex: 1; }
+.range-val { font-size: 13px; font-weight: 500; min-width: 45px; text-align: right; color: #374151; }
+.status-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; margin-left: 5px; }
+.dot-green { background: #10b981; }
+.dot-amber { background: #f59e0b; }
+.dot-red { background: #ef4444; }
+.dot-gray { background: #9ca3af; }
+.empty-state { text-align: center; padding: 2rem; color: #9ca3af; font-size: 13px; }
+.actions-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 1rem; }
+@media (max-width: 600px) { .grid-2, .grid-4 { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<div class="container">
+  <h1><i class="ti ti-radar" style="font-size:22px;color:#2563eb"></i> اسکنر IP کلودفلر <span class="badge">v2.0</span></h1>
+
+  <div class="grid-4">
+    <div class="metric-card"><div class="metric-label">اسکن شده</div><div class="metric-val blue" id="m-scanned">0</div></div>
+    <div class="metric-card"><div class="metric-label">تمیز (CF)</div><div class="metric-val green" id="m-clean">0</div></div>
+    <div class="metric-card"><div class="metric-label">بهترین پینگ</div><div class="metric-val amber" id="m-best">—</div></div>
+    <div class="metric-card"><div class="metric-label">وضعیت</div><div class="metric-val" id="m-status" style="font-size:14px;padding-top:4px"><span class="status-dot dot-gray"></span>آماده</div></div>
+  </div>
+
+  <div class="tabs">
+    <button class="tab active" onclick="switchTab('config')">⚙️ تنظیمات</button>
+    <button class="tab" onclick="switchTab('results')">📋 نتایج <span id="res-count"></span></button>
+    <button class="tab" onclick="switchTab('export')">⬇️ خروجی</button>
+  </div>
+
+  <!-- TAB: CONFIG -->
+  <div id="tab-config">
+    <div class="grid-2">
+      <div class="card">
+        <div class="section-title">محدوده IP</div>
+        <label>رنج شروع</label>
+        <input type="text" id="ip-start" value="104.16.0.1">
+        <label>رنج پایان</label>
+        <input type="text" id="ip-end" value="104.16.255.254">
+        <label>یا لیست دستی (هر خط یک IP)</label>
+        <textarea id="ip-list" rows="4" placeholder="اختیاری: IP های دلخواه را وارد کنید..."></textarea>
+      </div>
+      <div class="card">
+        <div class="section-title">پارامترهای اسکن</div>
+        <label>تعداد thread همزمان</label>
+        <div class="range-row">
+          <input type="range" id="threads" min="1" max="50" value="10" oninput="document.getElementById('threads-val').textContent=this.value">
+          <span class="range-val" id="threads-val">10</span>
+        </div>
+        <label>تایم‌اوت (ms)</label>
+        <div class="range-row">
+          <input type="range" id="timeout" min="500" max="10000" step="250" value="2000" oninput="document.getElementById('timeout-val').textContent=this.value">
+          <span class="range-val" id="timeout-val">2000</span>
+        </div>
+        <label>حداکثر پینگ قابل قبول (ms)</label>
+        <div class="range-row">
+          <input type="range" id="max-ping" min="50" max="2000" step="50" value="500" oninput="document.getElementById('maxping-val').textContent=this.value">
+          <span class="range-val" id="maxping-val">500</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="card" style="margin-bottom:1rem">
+      <div class="section-title">گزینه‌های تشخیص</div>
+      <div class="check-group">
+        <label class="check-item"><input type="checkbox" id="chk-cf" checked> تأیید هدر CF</label>
+        <label class="check-item"><input type="checkbox" id="chk-ssl" checked> بررسی SSL</label>
+        <label class="check-item"><input type="checkbox" id="chk-http2" checked> پشتیبانی HTTP/2</label>
+        <label class="check-item"><input type="checkbox" id="chk-loc"> تشخیص لوکیشن DC</label>
+        <label class="check-item"><input type="checkbox" id="chk-jitter"> اندازه‌گیری jitter</label>
+        <label class="check-item"><input type="checkbox" id="chk-asn" checked> بررسی ASN</label>
+        <label class="check-item"><input type="checkbox" id="chk-only-clean" checked> فقط نتایج تمیز</label>
+      </div>
+    </div>
+
+    <div class="card" style="margin-bottom:1.5rem">
+      <div class="section-title">رنج‌های پیش‌فرض CF</div>
+      <div class="check-group">
+        <label class="check-item"><input type="checkbox" id="r1" checked> 104.16.0.0/12</label>
+        <label class="check-item"><input type="checkbox" id="r2" checked> 172.64.0.0/13</label>
+        <label class="check-item"><input type="checkbox" id="r3"> 162.158.0.0/15</label>
+        <label class="check-item"><input type="checkbox" id="r4"> 141.101.64.0/18</label>
+        <label class="check-item"><input type="checkbox" id="r5"> 198.41.128.0/17</label>
+        <label class="check-item"><input type="checkbox" id="r6"> 188.114.96.0/20</label>
+      </div>
+      <button class="btn-outline" style="margin-top:12px;font-size:12px" onclick="loadPresetRanges()">⬇️ بارگذاری رنج‌های انتخابی</button>
+    </div>
+
+    <div>
+      <div class="progress-bar-wrap"><div class="progress-bar" id="progress" style="width:0%"></div></div>
+      <div style="display:flex;justify-content:space-between;font-size:12px;color:#9ca3af;margin-bottom:10px">
+        <span id="prog-text">آماده اسکن</span>
+        <span id="prog-pct">0%</span>
+      </div>
+    </div>
+
+    <div class="actions-row">
+      <button class="btn-primary" id="btn-start" onclick="startScan()">▶ شروع اسکن</button>
+      <button class="btn-stop" id="btn-stop" onclick="stopScan()" style="display:none">⏹ توقف</button>
+      <button class="btn-outline" onclick="clearResults()">🗑 پاک کردن</button>
+    </div>
+
+    <div class="card" style="margin-top:1rem">
+      <div class="section-title" style="margin-bottom:8px">لاگ اسکن</div>
+      <div class="log-box" id="log-box"></div>
+    </div>
+  </div>
+
+  <!-- TAB: RESULTS -->
+  <div id="tab-results" style="display:none">
+    <div class="actions-row">
+      <button class="btn-outline" onclick="sortResults('ping')">↑ مرتب بر اساس پینگ</button>
+      <button class="btn-outline" onclick="sortResults('ip')">↑ مرتب بر اساس IP</button>
+      <button class="btn-outline" onclick="filterClean()">⚡ فقط تمیز</button>
+      <button class="btn-outline" onclick="renderTable()">↺ نمایش همه</button>
+    </div>
+    <div class="card" style="padding:0;overflow:hidden">
+      <div id="results-container"><div class="empty-state">هنوز نتیجه‌ای وجود ندارد</div></div>
+    </div>
+  </div>
+
+  <!-- TAB: EXPORT -->
+  <div id="tab-export" style="display:none">
+    <div class="card" style="margin-bottom:1rem">
+      <div class="section-title">خروجی نتایج</div>
+      <div class="grid-2" style="margin-bottom:1rem">
+        <div>
+          <label>فرمت خروجی</label>
+          <select id="export-fmt" onchange="updateExportPreview()">
+            <option value="txt">TXT (هر خط یک IP)</option>
+            <option value="csv">CSV (با جزئیات)</option>
+            <option value="json">JSON (کامل)</option>
+            <option value="v2ray">V2Ray Config</option>
+            <option value="clash">Clash Config</option>
+          </select>
+        </div>
+        <div>
+          <label>فیلتر خروجی</label>
+          <select id="export-filter" onchange="updateExportPreview()">
+            <option value="all">همه نتایج</option>
+            <option value="clean">فقط تمیز CF</option>
+            <option value="fast">فقط سریع (&lt;200ms)</option>
+            <option value="top">برترین 10</option>
+            <option value="top50">برترین 50</option>
+          </select>
+        </div>
+      </div>
+      <div style="display:flex;gap:8px">
+        <button class="btn-primary" onclick="exportResults()">⬇ دانلود</button>
+        <button class="btn-outline" onclick="copyToClipboard()">📋 کپی</button>
+      </div>
+    </div>
+    <div class="card">
+      <div class="section-title">پیش‌نمایش</div>
+      <textarea id="export-preview" readonly rows="10" style="font-family:monospace;font-size:12px;background:#f9fafb" placeholder="پس از اسکن اینجا نمایش داده می‌شود..."></textarea>
+    </div>
+  </div>
+</div>
+
+<script>
+// ============================================================
+//  STATE
+// ============================================================
+let results = [];
+let scanning = false;
+let stopRequested = false;
+let totalToScan = 0;
+let scannedCount = 0;
+
+// رنج‌های رسمی Cloudflare (IPv4)
+const CF_RANGES = {
+  r1: { start: [104,16,0,1],    end: [104,16,255,254]   },
+  r2: { start: [172,64,0,1],    end: [172,71,255,254]   },
+  r3: { start: [162,158,0,1],   end: [162,159,255,254]  },
+  r4: { start: [141,101,64,1],  end: [141,101,127,254]  },
+  r5: { start: [198,41,128,1],  end: [198,41,255,254]   },
+  r6: { start: [188,114,96,1],  end: [188,114,111,254]  },
+};
+
+// کد DC های کلودفلر
+const CF_DCS = ["FRA","AMS","CDG","LHR","SIN","NRT","LAX","ORD","DFW","MIA",
+                "IAD","SEA","SYD","GRU","JNB","DXB","BOM","HKG","ICN","YYZ",
+                "FCO","MAD","ARN","WAW","IST","DEL","MNL","CGK","KUL","BKK"];
+
+// ============================================================
+//  UTILS
+// ============================================================
+function ipToNum(ip) {
+  return ip.split('.').reduce((acc,v,i) => acc + parseInt(v) * (256 ** (3-i)), 0);
+}
+function numToIp(n) {
+  return [(n>>>24)&255,(n>>>16)&255,(n>>>8)&255,n&255].join('.');
+}
+function pingCategory(ms) {
+  if (ms < 150) return 'fast';
+  if (ms < 400) return 'med';
+  return 'slow';
+}
+
+// ============================================================
+//  LOG
+// ============================================================
+function addLog(msg, cls='') {
+  const lb = document.getElementById('log-box');
+  const line = document.createElement('div');
+  if (cls) line.className = cls;
+  const t = new Date().toTimeString().slice(0,8);
+  line.textContent = `[${t}] ${msg}`;
+  lb.appendChild(line);
+  lb.scrollTop = lb.scrollHeight;
+}
+
+// ============================================================
+//  FAKE TEST  (شبیه‌سازی — در نسخه واقعی با fetch جایگزین شود)
+//
+//  در نسخه واقعی این تابع باید:
+//  1. یک درخواست HTTP/HTTPS به آدرس IP بفرستد
+//  2. هدرهای جواب را بررسی کند (CF-RAY, Server: cloudflare)
+//  3. زمان پاسخ را اندازه بگیرد
+//  4. مقادیر واقعی برگرداند
+// ============================================================
+function testIP(ip) {
+  return new Promise(resolve => {
+    // شبیه‌سازی تأخیر شبکه
+    const delay = Math.floor(Math.random() * 1200) + 40;
+    setTimeout(() => {
+      // احتمال 65٪ که IP متعلق به CF باشد
+      const isCF = Math.random() > 0.35;
+      const ping   = isCF ? Math.floor(Math.random() * 600) + 30  : null;
+      const jitter = isCF ? Math.floor(Math.random() * 30)  + 1   : null;
+      const dc     = isCF ? CF_DCS[Math.floor(Math.random() * CF_DCS.length)] : null;
+      const ssl    = isCF ? Math.random() > 0.1  : false;
+      const http2  = isCF ? Math.random() > 0.2  : false;
+      resolve({ ip, isCF, ping, jitter, dc, ssl, http2, asn: isCF ? 'AS13335 Cloudflare' : '—' });
+    }, delay);
+  });
+}
+
+// ============================================================
+//  SCAN ENGINE — Worker Pool Pattern
+// ============================================================
+async function startScan() {
+  if (scanning) return;
+  scanning = true;
+  stopRequested = false;
+  results = [];
+  scannedCount = 0;
+
+  document.getElementById('btn-start').disabled = true;
+  document.getElementById('btn-stop').style.display = 'inline-flex';
+  document.getElementById('log-box').innerHTML = '';
+  ['m-scanned','m-clean'].forEach(id => document.getElementById(id).textContent = '0');
+  document.getElementById('m-best').textContent = '—';
+  setStatus('اسکن در جریان...', 'amber');
+
+  // --- ساخت لیست IP ---
+  const listVal = document.getElementById('ip-list').value.trim();
+  let ips = [];
+
+  if (listVal) {
+    // لیست دستی
+    ips = listVal.split('\n')
+      .map(s => s.trim())
+      .filter(s => /^\d{1,3}(\.\d{1,3}){3}$/.test(s));
+    addLog(`${ips.length} IP از لیست دستی بارگذاری شد`, 'info');
+  } else {
+    // رنج IP
+    const startN = ipToNum(document.getElementById('ip-start').value.trim());
+    const endN   = ipToNum(document.getElementById('ip-end').value.trim());
+    const count  = Math.min(endN - startN + 1, 500); // حداکثر 500 در مرورگر
+    for (let i = 0; i < count; i++) ips.push(numToIp(startN + i));
+    addLog(`رنج: ${numToIp(startN)} → ${numToIp(startN+count-1)} (${count} IP)`, 'info');
+  }
+
+  totalToScan = ips.length;
+  const threads = parseInt(document.getElementById('threads').value);
+  const maxPing = parseInt(document.getElementById('max-ping').value);
+  const onlyClean = document.getElementById('chk-only-clean').checked;
+
+  addLog(`شروع — ${totalToScan} IP، ${threads} thread همزمان`, 'info');
+
+  // --- Worker Pool ---
+  let idx = 0;
+
+  async function worker() {
+    while (idx < ips.length && !stopRequested) {
+      const ip = ips[idx++];
+      const res = await testIP(ip);
+      scannedCount++;
+
+      // آپدیت progress
+      const pct = Math.round(scannedCount / totalToScan * 100);
+      document.getElementById('progress').style.width = pct + '%';
+      document.getElementById('prog-pct').textContent = pct + '%';
+      document.getElementById('prog-text').textContent = `اسکن ${scannedCount} از ${totalToScan}`;
+      document.getElementById('m-scanned').textContent = scannedCount;
+
+      if (res.isCF && res.ping <= maxPing) {
+        results.push(res);
+        document.getElementById('m-clean').textContent = results.length;
+        const best = results.reduce((a,b) => a.ping < b.ping ? a : b, {ping: Infinity});
+        document.getElementById('m-best').textContent = best.ping + 'ms';
+        addLog(`✓ ${res.ip} | پینگ: ${res.ping}ms | DC: ${res.dc} | SSL: ${res.ssl?'✓':'✗'} | HTTP2: ${res.http2?'✓':'✗'}`, 'ok');
+      } else if (!onlyClean) {
+        addLog(`✗ ${ip} — غیر CF یا پینگ بالا`, 'fail');
+      }
+
+      document.getElementById('res-count').textContent = results.length ? `(${results.length})` : '';
+    }
+  }
+
+  // اجرای همزمان thread ها
+  await Promise.all(
+    Array.from({ length: Math.min(threads, ips.length) }, () => worker())
+  );
+
+  scanning = false;
+  document.getElementById('btn-start').disabled = false;
+  document.getElementById('btn-stop').style.display = 'none';
+
+  if (stopRequested) {
+    setStatus('متوقف شد', 'red');
+    addLog(`متوقف. ${results.length} نتیجه یافت شد.`, 'info');
+  } else {
+    setStatus('اتمام اسکن ✓', 'green');
+    addLog(`تمام! ${results.length} IP تمیز از ${totalToScan} اسکن شده.`, 'ok');
+    renderTable();
+    updateExportPreview();
+  }
+}
+
+function stopScan() {
+  stopRequested = true;
+  addLog('درخواست توقف...', 'info');
+}
+
+function setStatus(txt, color) {
+  const cls = { green:'dot-green', amber:'dot-amber', red:'dot-red', gray:'dot-gray' }[color] || 'dot-gray';
+  document.getElementById('m-status').innerHTML = `<span class="status-dot ${cls}"></span>${txt}`;
+}
+
+function clearResults() {
+  results = []; scannedCount = 0;
+  ['m-scanned','m-clean'].forEach(id => document.getElementById(id).textContent = '0');
+  document.getElementById('m-best').textContent = '—';
+  document.getElementById('progress').style.width = '0%';
+  document.getElementById('prog-pct').textContent = '0%';
+  document.getElementById('prog-text').textContent = 'آماده اسکن';
+  document.getElementById('log-box').innerHTML = '';
+  document.getElementById('res-count').textContent = '';
+  document.getElementById('results-container').innerHTML = '<div class="empty-state">هنوز نتیجه‌ای وجود ندارد</div>';
+  setStatus('آماده', 'gray');
+}
+
+// ============================================================
+//  TABLE
+// ============================================================
+function sortResults(by) {
+  if (by === 'ping') results.sort((a,b) => (a.ping||9999) - (b.ping||9999));
+  else results.sort((a,b) => a.ip.localeCompare(b.ip, undefined, {numeric:true}));
+  renderTable();
+}
+
+function filterClean() { renderTable(results.filter(r => r.isCF)); }
+
+function renderTable(data) {
+  const rows = data || results;
+  const c = document.getElementById('results-container');
+  if (!rows.length) { c.innerHTML = '<div class="empty-state">نتیجه‌ای پیدا نشد</div>'; return; }
+  let h = `<div style="overflow-x:auto"><table class="results-table">
+    <thead><tr>
+      <th>آدرس IP</th><th>پینگ</th><th>Jitter</th><th>DC</th><th>SSL</th><th>HTTP/2</th><th>ASN</th><th>وضعیت</th>
+    </tr></thead><tbody>`;
+  rows.forEach(r => {
+    const cat = r.ping ? pingCategory(r.ping) : 'slow';
+    h += `<tr>
+      <td style="font-family:monospace;font-size:12px">${r.ip}</td>
+      <td><span class="pill ${cat}">${r.ping ? r.ping+'ms' : '—'}</span></td>
+      <td style="color:#6b7280;font-size:12px">${r.jitter ? r.jitter+'ms' : '—'}</td>
+      <td style="font-weight:500;font-size:12px">${r.dc||'—'}</td>
+      <td style="color:${r.ssl?'#059669':'#9ca3af'}">${r.ssl?'✓':'✗'}</td>
+      <td style="color:${r.http2?'#059669':'#9ca3af'}">${r.http2?'✓':'✗'}</td>
+      <td style="font-size:11px;color:#6b7280">${r.asn||'—'}</td>
+      <td><span class="pill ${r.isCF?'cf':'noncf'}">${r.isCF?'Cloudflare':'غیر CF'}</span></td>
+    </tr>`;
+  });
+  h += '</tbody></table></div>';
+  c.innerHTML = h;
+}
+
+// ============================================================
+//  EXPORT
+// ============================================================
+function getExportData() {
+  const fmt    = document.getElementById('export-fmt').value;
+  const filter = document.getElementById('export-filter').value;
+  let data = [...results];
+  if (filter === 'clean') data = data.filter(r => r.isCF);
+  else if (filter === 'fast')  data = data.filter(r => r.ping && r.ping < 200);
+  else if (filter === 'top')   data = data.filter(r => r.isCF).sort((a,b) => a.ping-b.ping).slice(0,10);
+  else if (filter === 'top50') data = data.filter(r => r.isCF).sort((a,b) => a.ping-b.ping).slice(0,50);
+
+  if (fmt === 'txt')  return data.map(r => r.ip).join('\n');
+  if (fmt === 'csv')  return 'IP,Ping(ms),Jitter(ms),DC,SSL,HTTP2,ASN\n' +
+    data.map(r => `${r.ip},${r.ping||''},${r.jitter||''},${r.dc||''},${r.ssl},${r.http2},${r.asn||''}`).join('\n');
+  if (fmt === 'json') return JSON.stringify(data, null, 2);
+  if (fmt === 'v2ray') {
+    return data.filter(r=>r.isCF).sort((a,b)=>a.ping-b.ping).slice(0,5).map((r,i) =>
+      `// Server ${i+1} — Ping: ${r.ping}ms  DC: ${r.dc}\n{\n  "address": "${r.ip}",\n  "port": 443,\n  "network": "ws",\n  "tls": ${r.ssl}\n}`
+    ).join('\n\n');
+  }
+  if (fmt === 'clash') {
+    return 'proxies:\n' + data.filter(r=>r.isCF).sort((a,b)=>a.ping-b.ping).slice(0,5).map((r,i) =>
+      `  - name: CF-${r.dc||i+1}-${r.ping}ms\n    type: vmess\n    server: ${r.ip}\n    port: 443\n    tls: ${r.ssl}`
+    ).join('\n');
+  }
+  return '';
+}
+
+function updateExportPreview() {
+  document.getElementById('export-preview').value = getExportData();
+}
+
+function exportResults() {
+  const fmt = document.getElementById('export-fmt').value;
+  const ext = { txt:'txt', csv:'csv', json:'json', v2ray:'json', clash:'yaml' }[fmt] || 'txt';
+  const blob = new Blob([getExportData()], { type: 'text/plain' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `cf-clean-ips.${ext}`;
+  a.click();
+}
+
+function copyToClipboard() {
+  navigator.clipboard.writeText(getExportData()).then(() => {
+    const btn = document.querySelector('[onclick="copyToClipboard()"]');
+    const orig = btn.textContent;
+    btn.textContent = '✓ کپی شد';
+    setTimeout(() => btn.textContent = orig, 2000);
+  });
+}
+
+// ============================================================
+//  PRESET RANGES
+// ============================================================
+function loadPresetRanges() {
+  const selected = Object.keys(CF_RANGES).filter(k => document.getElementById(k)?.checked);
+  if (!selected.length) { addLog('هیچ رنجی انتخاب نشده!', 'fail'); return; }
+  const all = [];
+  selected.forEach(key => {
+    const r = CF_RANGES[key];
+    const count = Math.min(50, 256);
+    for (let i = 0; i < count; i++) {
+      const parts = [...r.start];
+      parts[3] = ((parts[3] + i - 1) % 253) + 1;
+      all.push(parts.join('.'));
+    }
+  });
+  document.getElementById('ip-list').value = all.join('\n');
+  addLog(`${all.length} IP از ${selected.length} رنج بارگذاری شد`, 'info');
+}
+
+// ============================================================
+//  TABS
+// ============================================================
+function switchTab(t) {
+  ['config','results','export'].forEach(id => {
+    document.getElementById('tab-'+id).style.display = id===t ? 'block' : 'none';
+  });
+  document.querySelectorAll('.tab').forEach((el,i) => {
+    el.classList.toggle('active', ['config','results','export'][i]===t);
+  });
+  if (t === 'export') updateExportPreview();
+}
+</script>
+</body>
+</html>
