@@ -3,13 +3,13 @@ import About from './About';
 
 function WaveAnimation({ active }) {
   return (
-    <div className="flex items-center justify-center gap-1 h-12">
+    <div className="flex items-center justify-center gap-1 h-8">
       {[...Array(5)].map((_, i) => (
         <div
           key={i}
           className="w-1 rounded-full transition-all duration-300"
           style={{
-            height: active ? `${16 + Math.random() * 32}px` : '6px',
+            height: active ? `${12 + Math.random() * 20}px` : '4px',
             backgroundColor: active ? '#60a5fa' : '#475569',
             animation: active ? `wave 0.${4 + i}s ease-in-out infinite alternate` : 'none',
             animationDelay: `${i * 0.1}s`,
@@ -26,14 +26,116 @@ function GlowOrb({ speaking }) {
       <div
         className="rounded-full blur-3xl transition-all duration-700"
         style={{
-          width: speaking ? '300px' : '200px',
-          height: speaking ? '300px' : '200px',
+          width: speaking ? '280px' : '180px',
+          height: speaking ? '280px' : '180px',
           background: speaking
             ? 'radial-gradient(circle, rgba(96,165,250,0.3) 0%, rgba(139,92,246,0.15) 50%, transparent 70%)'
-            : 'radial-gradient(circle, rgba(96,165,250,0.1) 0%, transparent 60%)',
+            : 'radial-gradient(circle, rgba(96,165,250,0.08) 0%, transparent 60%)',
           animation: speaking ? 'pulse-glow 1.5s ease-in-out infinite' : 'none',
         }}
       />
+    </div>
+  );
+}
+
+function CopyButton({ text }) {
+  const [copied, setCopied] = useState(false);
+  const handleCopy = () => {
+    navigator.clipboard.writeText(text);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+  return (
+    <button
+      onClick={handleCopy}
+      className="absolute top-2 left-2 px-2 py-1 rounded-md bg-white/10 hover:bg-white/20 text-slate-400 hover:text-white text-xs transition-all duration-200"
+    >
+      {copied ? 'Copied!' : 'Copy'}
+    </button>
+  );
+}
+
+function MessageBubble({ text }) {
+  const [showEnglish, setShowEnglish] = useState(false);
+
+  const parts = text.split(/\[FA\]|\[EN\]/g).filter(Boolean);
+  let farsi = '';
+  let english = '';
+
+  parts.forEach((part, i) => {
+    if (text.indexOf('[FA]') < text.indexOf('[EN]') || text.indexOf('[EN]') === -1) {
+      if (i === 0) farsi = part.trim();
+      else if (part.trim()) english = part.trim();
+    } else {
+      if (i === 0) english = part.trim();
+      else if (part.trim()) farsi = part.trim();
+    }
+  });
+
+  if (!farsi && !english) {
+    farsi = text;
+  }
+
+  const renderContent = (content) => {
+    const codeBlockRegex = /```(\w+)?\n([\s\S]*?)```/g;
+    const segments = [];
+    let lastIndex = 0;
+    let match;
+
+    while ((match = codeBlockRegex.exec(content)) !== null) {
+      if (match.index > lastIndex) {
+        segments.push({ type: 'text', content: content.slice(lastIndex, match.index) });
+      }
+      segments.push({ type: 'code', lang: match[1] || '', content: match[2].trim() });
+      lastIndex = match.index + match[0].length;
+    }
+
+    if (lastIndex < content.length) {
+      segments.push({ type: 'text', content: content.slice(lastIndex) });
+    }
+
+    return segments.map((seg, i) => {
+      if (seg.type === 'code') {
+        return (
+          <div key={i} className="relative my-3 rounded-xl overflow-hidden bg-[#1a1b26] border border-white/10">
+            <CopyButton text={seg.content} />
+            <div className="px-4 pt-8 pb-4 overflow-x-auto">
+              <pre className="text-sm text-slate-300 font-mono leading-relaxed">
+                <code>{seg.content}</code>
+              </pre>
+            </div>
+          </div>
+        );
+      }
+      return <p key={i} className="text-slate-200 leading-relaxed whitespace-pre-wrap">{seg.content}</p>;
+    });
+  };
+
+  return (
+    <div className="space-y-2">
+      <div className="text-base leading-relaxed" dir="auto">
+        {renderContent(farsi)}
+      </div>
+
+      {english && (
+        <div>
+          <button
+            onClick={() => setShowEnglish(!showEnglish)}
+            className="flex items-center gap-1.5 text-xs text-slate-500 hover:text-slate-300 transition-colors duration-200"
+          >
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
+              className={`transition-transform duration-200 ${showEnglish ? 'rotate-90' : ''}`}>
+              <polyline points="9 18 15 12 9 6"/>
+            </svg>
+            English
+          </button>
+          {showEnglish && (
+            <div className="mt-2 pl-3 border-r-2 border-white/10 text-sm text-slate-400 leading-relaxed" style={{ animation: 'fade-in-up 0.2s ease-out' }}>
+              {english}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
@@ -45,7 +147,6 @@ export default function VoiceAssistant() {
   const [transcript, setTranscript] = useState('');
   const [lang, setLang] = useState('fa');
   const [speaking, setSpeaking] = useState(false);
-  const [thinking, setThinking] = useState('');
   const [history, setHistory] = useState([]);
   const [textInput, setTextInput] = useState('');
   const historyRef = useRef(null);
@@ -89,7 +190,6 @@ export default function VoiceAssistant() {
   const sendMessage = async (message) => {
     setHistory(prev => [...prev, { role: 'user', text: message }]);
     setResponse('');
-    setThinking('');
 
     try {
       const res = await fetch('http://localhost:3000/api/chat', {
@@ -101,7 +201,6 @@ export default function VoiceAssistant() {
       const reader = res.body.getReader();
       const decoder = new TextDecoder();
       let fullResponse = '';
-      let fullThinking = '';
 
       while (true) {
         const { done, value } = await reader.read();
@@ -116,10 +215,6 @@ export default function VoiceAssistant() {
             if (data === '[DONE]') break;
             try {
               const parsed = JSON.parse(data);
-              if (parsed.thinking) {
-                fullThinking += parsed.thinking;
-                setThinking(fullThinking);
-              }
               if (parsed.text) {
                 fullResponse += parsed.text;
                 setResponse(fullResponse);
@@ -133,11 +228,9 @@ export default function VoiceAssistant() {
       }
 
       if (fullResponse) {
-        const faText = fullResponse.split('\n').filter(l => l.startsWith('[FA]')).map(l => l.replace('[FA]', '').trim()).join(' ');
-        const enText = fullResponse.split('\n').filter(l => l.startsWith('[EN]')).map(l => l.replace('[EN]', '').trim()).join(' ');
-        const speakText = faText + '. ' + enText;
+        const faText = fullResponse.split('[FA]')[1]?.split('[EN]')[0]?.trim() || fullResponse;
         setHistory(prev => [...prev, { role: 'assistant', text: fullResponse }]);
-        speakResponse(speakText);
+        speakFarsi(faText);
       }
     } catch (error) {
       const errMsg = `Error: ${error.message}`;
@@ -148,14 +241,18 @@ export default function VoiceAssistant() {
     }
   };
 
-  const speakResponse = useCallback((text) => {
+  const speakFarsi = useCallback((text) => {
+    const cleanText = text.replace(/```[\s\S]*?```/g, '').trim();
+    if (!cleanText) return;
+
     setSpeaking(true);
-    const utterance = new SpeechSynthesisUtterance(text);
-    utterance.lang = lang === 'fa' ? 'fa-IR' : 'en-US';
+    const utterance = new SpeechSynthesisUtterance(cleanText);
+    utterance.lang = 'fa-IR';
+    utterance.rate = 0.9;
     utterance.onend = () => setSpeaking(false);
     utterance.onerror = () => setSpeaking(false);
     window.speechSynthesis.speak(utterance);
-  }, [lang]);
+  }, []);
 
   const toggleLang = () => setLang(l => l === 'fa' ? 'en' : 'fa');
 
@@ -174,28 +271,24 @@ export default function VoiceAssistant() {
     <div className="min-h-screen bg-[#0a0a1a] relative overflow-hidden">
       <style>{`
         @keyframes wave {
-          0% { height: 8px; }
-          100% { height: 32px; }
+          0% { height: 6px; }
+          100% { height: 24px; }
         }
         @keyframes pulse-glow {
           0%, 100% { transform: scale(1); opacity: 0.6; }
-          50% { transform: scale(1.15); opacity: 1; }
+          50% { transform: scale(1.1); opacity: 1; }
         }
         @keyframes float {
           0%, 100% { transform: translateY(0px); }
-          50% { transform: translateY(-8px); }
-        }
-        @keyframes shimmer {
-          0% { background-position: -200% center; }
-          100% { background-position: 200% center; }
+          50% { transform: translateY(-6px); }
         }
         @keyframes fade-in-up {
-          from { opacity: 0; transform: translateY(16px); }
+          from { opacity: 0; transform: translateY(12px); }
           to { opacity: 1; transform: translateY(0); }
         }
         @keyframes ring-pulse {
-          0% { transform: scale(1); opacity: 0.5; }
-          100% { transform: scale(1.6); opacity: 0; }
+          0% { transform: scale(1); opacity: 0.4; }
+          100% { transform: scale(1.5); opacity: 0; }
         }
       `}</style>
 
@@ -205,8 +298,8 @@ export default function VoiceAssistant() {
         <div className="absolute top-[40%] left-[50%] w-[300px] h-[300px] rounded-full bg-cyan-600/5 blur-[100px]" />
       </div>
 
-      <div className="relative z-10 min-h-screen flex flex-col max-w-2xl mx-auto px-4 py-8">
-        <header className="flex items-center justify-between mb-8">
+      <div className="relative z-10 min-h-screen flex flex-col max-w-2xl mx-auto px-4 py-6">
+        <header className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center shadow-lg shadow-blue-500/20">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -236,21 +329,21 @@ export default function VoiceAssistant() {
           </div>
         </header>
 
-        <div className="flex-1 flex flex-col items-center justify-center mb-8">
+        <div className="flex-shrink-0 flex flex-col items-center mb-6">
           <GlowOrb speaking={speaking} />
 
-          <div className="relative mb-6" style={{ animation: 'float 4s ease-in-out infinite' }}>
+          <div className="relative mb-4" style={{ animation: 'float 4s ease-in-out infinite' }}>
             <button
               onClick={startListening}
               disabled={loading}
-              className="relative w-28 h-28 rounded-full flex items-center justify-center transition-all duration-500 group"
+              className="relative w-24 h-24 rounded-full flex items-center justify-center transition-all duration-500 group"
               style={{
                 background: loading
                   ? 'linear-gradient(135deg, #1e40af, #7c3aed)'
                   : 'linear-gradient(135deg, #1e3a5f, #1e1b4b)',
                 boxShadow: loading
-                  ? '0 0 40px rgba(99,102,241,0.4), inset 0 0 20px rgba(99,102,241,0.1)'
-                  : '0 0 30px rgba(30,58,95,0.5), inset 0 0 15px rgba(30,27,75,0.3)',
+                  ? '0 0 35px rgba(99,102,241,0.4), inset 0 0 15px rgba(99,102,241,0.1)'
+                  : '0 0 25px rgba(30,58,95,0.5), inset 0 0 12px rgba(30,27,75,0.3)',
               }}
             >
               {loading && (
@@ -260,7 +353,7 @@ export default function VoiceAssistant() {
                 </>
               )}
               <svg
-                width="40" height="40" viewBox="0 0 24 24" fill="none"
+                width="36" height="36" viewBox="0 0 24 24" fill="none"
                 stroke={loading ? '#93c5fd' : '#64748b'}
                 strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"
                 className="transition-all duration-300 group-hover:stroke-blue-400"
@@ -274,28 +367,28 @@ export default function VoiceAssistant() {
 
           <WaveAnimation active={loading} />
 
-          <p className="text-slate-500 text-sm mt-3">
+          <p className="text-slate-500 text-xs mt-2">
             {loading
               ? (lang === 'fa' ? 'در حال گوش دادن...' : 'Listening...')
-              : (lang === 'fa' ? 'روی میکروفون کلیک کنید یا تایپ کنید' : 'Click the microphone or type a message')}
+              : (lang === 'fa' ? 'روی میکروفون کلیک کنید یا تایپ کنید' : 'Click mic or type a message')}
           </p>
 
-          <form onSubmit={handleTextSubmit} className="mt-4 w-full max-w-xl flex gap-2">
+          <form onSubmit={handleTextSubmit} className="mt-3 w-full max-w-md flex gap-2">
             <input
               type="text"
               value={textInput}
               onChange={(e) => setTextInput(e.target.value)}
               placeholder={lang === 'fa' ? 'پیامت رو بنویس...' : 'Type your message...'}
               disabled={loading}
-              className="flex-1 px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white placeholder-slate-500 text-sm focus:outline-none focus:border-blue-500/50 transition-all duration-300"
+              className="flex-1 px-4 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white placeholder-slate-500 text-sm focus:outline-none focus:border-blue-500/50 transition-all duration-300"
               dir="auto"
             />
             <button
               type="submit"
               disabled={!textInput.trim() || loading}
-              className="px-4 py-3 rounded-xl bg-blue-600 hover:bg-blue-700 disabled:bg-slate-700 disabled:text-slate-500 text-white text-sm font-medium transition-all duration-300"
+              className="px-4 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 disabled:bg-slate-700 disabled:text-slate-500 text-white text-sm transition-all duration-300"
             >
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <line x1="22" y1="2" x2="11" y2="13"/>
                 <polygon points="22 2 15 22 11 13 2 9 22 2"/>
               </svg>
@@ -308,7 +401,7 @@ export default function VoiceAssistant() {
             <div
               ref={historyRef}
               className="flex-1 overflow-y-auto space-y-3 mb-4 scrollbar-thin pr-1"
-              style={{ maxHeight: '320px' }}
+              style={{ maxHeight: 'calc(100vh - 420px)' }}
             >
               {history.map((item, i) => (
                 <div
@@ -317,46 +410,32 @@ export default function VoiceAssistant() {
                   style={{ animation: 'fade-in-up 0.3s ease-out' }}
                 >
                   <div
-                    className={`max-w-[85%] px-4 py-3 rounded-2xl text-sm leading-relaxed ${
+                    className={`max-w-[85%] px-4 py-3 rounded-2xl text-sm ${
                       item.role === 'user'
                         ? 'bg-blue-600/20 border border-blue-500/20 text-blue-100 rounded-br-md'
-                        : 'bg-white/5 border border-white/10 text-slate-300 rounded-bl-md'
+                        : 'bg-white/5 border border-white/10 rounded-bl-md'
                     }`}
                   >
-                    {item.text}
+                    {item.role === 'assistant' ? (
+                      <MessageBubble text={item.text} />
+                    ) : (
+                      <span className="text-blue-100">{item.text}</span>
+                    )}
                   </div>
                 </div>
               ))}
 
-              {thinking && loading && (
-                <div className="flex justify-start" style={{ animation: 'fade-in-up 0.3s ease-out' }}>
-                  <div className="max-w-[85%] px-4 py-3 rounded-2xl rounded-bl-md bg-purple-500/10 border border-purple-500/20 text-purple-300/70 text-xs leading-relaxed italic">
-                    <span className="text-purple-400/50 font-medium">thinking...</span>
-                    <br />
-                    {thinking}
-                  </div>
-                </div>
-              )}
-
               {response && (!history.length || history[history.length - 1]?.text !== response) && (
                 <div className="flex justify-start" style={{ animation: 'fade-in-up 0.3s ease-out' }}>
-                  <div className="max-w-[85%] px-4 py-3 rounded-2xl rounded-bl-md bg-white/5 border border-white/10 text-sm leading-relaxed">
-                    {response.split('\n').filter(l => l.startsWith('[FA]')).map((line, i) => (
-                      <p key={i} className="text-slate-200 text-base" dir="auto">{line.replace('[FA]', '').trim()}</p>
-                    ))}
-                    {response.split('\n').filter(l => l.startsWith('[EN]')).length > 0 && (
-                      <div className="mt-2 pt-2 border-t border-white/10">
-                        {response.split('\n').filter(l => l.startsWith('[EN]')).map((line, i) => (
-                          <p key={i} className="text-slate-400 text-xs">{line.replace('[EN]', '').trim()}</p>
-                        ))}
-                      </div>
-                    )}
+                  <div className="max-w-[85%] px-4 py-3 rounded-2xl rounded-bl-md bg-white/5 border border-white/10 text-sm">
+                    <MessageBubble text={response} />
                     {speaking && (
-                      <span className="inline-flex gap-0.5 ml-2 align-middle">
-                        <span className="w-1.5 h-1.5 bg-blue-400 rounded-full" style={{ animation: 'wave 0.4s ease-in-out infinite alternate' }} />
-                        <span className="w-1.5 h-1.5 bg-blue-400 rounded-full" style={{ animation: 'wave 0.5s ease-in-out infinite alternate 0.1s' }} />
-                        <span className="w-1.5 h-1.5 bg-blue-400 rounded-full" style={{ animation: 'wave 0.6s ease-in-out infinite alternate 0.2s' }} />
-                      </span>
+                      <div className="mt-2 flex items-center gap-1.5 text-blue-400">
+                        <div className="w-1.5 h-1.5 bg-blue-400 rounded-full" style={{ animation: 'wave 0.4s ease-in-out infinite alternate' }} />
+                        <div className="w-1.5 h-1.5 bg-blue-400 rounded-full" style={{ animation: 'wave 0.5s ease-in-out infinite alternate 0.1s' }} />
+                        <div className="w-1.5 h-1.5 bg-blue-400 rounded-full" style={{ animation: 'wave 0.6s ease-in-out infinite alternate 0.2s' }} />
+                        <span className="text-xs ml-1">در حال خواندن...</span>
+                      </div>
                     )}
                   </div>
                 </div>
@@ -365,7 +444,7 @@ export default function VoiceAssistant() {
           </div>
         )}
 
-        <footer className="text-center text-slate-600 text-xs pt-4 border-t border-white/5">
+        <footer className="text-center text-slate-600 text-xs pt-3 border-t border-white/5">
           {lang === 'fa' ? 'ساخته شده با Ollama + React' : 'Built with Ollama + React'}
         </footer>
       </div>
