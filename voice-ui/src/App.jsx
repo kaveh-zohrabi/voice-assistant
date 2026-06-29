@@ -45,6 +45,7 @@ export default function VoiceAssistant() {
   const [transcript, setTranscript] = useState('');
   const [lang, setLang] = useState('fa');
   const [speaking, setSpeaking] = useState(false);
+  const [thinking, setThinking] = useState('');
   const [history, setHistory] = useState([]);
   const historyRef = useRef(null);
 
@@ -87,6 +88,7 @@ export default function VoiceAssistant() {
   const sendMessage = async (message) => {
     setHistory(prev => [...prev, { role: 'user', text: message }]);
     setResponse('');
+    setThinking('');
 
     try {
       const res = await fetch('http://localhost:3000/api/chat', {
@@ -98,6 +100,7 @@ export default function VoiceAssistant() {
       const reader = res.body.getReader();
       const decoder = new TextDecoder();
       let fullResponse = '';
+      let fullThinking = '';
 
       while (true) {
         const { done, value } = await reader.read();
@@ -112,6 +115,10 @@ export default function VoiceAssistant() {
             if (data === '[DONE]') break;
             try {
               const parsed = JSON.parse(data);
+              if (parsed.thinking) {
+                fullThinking += parsed.thinking;
+                setThinking(fullThinking);
+              }
               if (parsed.text) {
                 fullResponse += parsed.text;
                 setResponse(fullResponse);
@@ -125,8 +132,11 @@ export default function VoiceAssistant() {
       }
 
       if (fullResponse) {
+        const faText = fullResponse.split('\n').filter(l => l.startsWith('[FA]')).map(l => l.replace('[FA]', '').trim()).join(' ');
+        const enText = fullResponse.split('\n').filter(l => l.startsWith('[EN]')).map(l => l.replace('[EN]', '').trim()).join(' ');
+        const speakText = faText + '. ' + enText;
         setHistory(prev => [...prev, { role: 'assistant', text: fullResponse }]);
-        speakResponse(fullResponse);
+        speakResponse(speakText);
       }
     } catch (error) {
       const errMsg = `Error: ${error.message}`;
@@ -288,10 +298,29 @@ export default function VoiceAssistant() {
                 </div>
               ))}
 
+              {thinking && loading && (
+                <div className="flex justify-start" style={{ animation: 'fade-in-up 0.3s ease-out' }}>
+                  <div className="max-w-[85%] px-4 py-3 rounded-2xl rounded-bl-md bg-purple-500/10 border border-purple-500/20 text-purple-300/70 text-xs leading-relaxed italic">
+                    <span className="text-purple-400/50 font-medium">thinking...</span>
+                    <br />
+                    {thinking}
+                  </div>
+                </div>
+              )}
+
               {response && (!history.length || history[history.length - 1]?.text !== response) && (
                 <div className="flex justify-start" style={{ animation: 'fade-in-up 0.3s ease-out' }}>
-                  <div className="max-w-[85%] px-4 py-3 rounded-2xl rounded-bl-md bg-white/5 border border-white/10 text-slate-300 text-sm leading-relaxed">
-                    {response}
+                  <div className="max-w-[85%] px-4 py-3 rounded-2xl rounded-bl-md bg-white/5 border border-white/10 text-sm leading-relaxed">
+                    {response.split('\n').filter(l => l.startsWith('[FA]')).map((line, i) => (
+                      <p key={i} className="text-slate-200 text-base" dir="auto">{line.replace('[FA]', '').trim()}</p>
+                    ))}
+                    {response.split('\n').filter(l => l.startsWith('[EN]')).length > 0 && (
+                      <div className="mt-2 pt-2 border-t border-white/10">
+                        {response.split('\n').filter(l => l.startsWith('[EN]')).map((line, i) => (
+                          <p key={i} className="text-slate-400 text-xs">{line.replace('[EN]', '').trim()}</p>
+                        ))}
+                      </div>
+                    )}
                     {speaking && (
                       <span className="inline-flex gap-0.5 ml-2 align-middle">
                         <span className="w-1.5 h-1.5 bg-blue-400 rounded-full" style={{ animation: 'wave 0.4s ease-in-out infinite alternate' }} />
