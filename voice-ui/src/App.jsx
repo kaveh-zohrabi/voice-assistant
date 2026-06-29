@@ -47,6 +47,7 @@ export default function VoiceAssistant() {
   const [speaking, setSpeaking] = useState(false);
   const [thinking, setThinking] = useState('');
   const [history, setHistory] = useState([]);
+  const [textInput, setTextInput] = useState('');
   const historyRef = useRef(null);
 
   useEffect(() => {
@@ -157,6 +158,13 @@ export default function VoiceAssistant() {
   }, [lang]);
 
   const toggleLang = () => setLang(l => l === 'fa' ? 'en' : 'fa');
+
+  const handleTextSubmit = (e) => {
+    e.preventDefault();
+    if (!textInput.trim() || loading) return;
+    sendMessage(textInput.trim());
+    setTextInput('');
+  };
 
   if (page === 'about') {
     return <About onBack={() => setPage('home')} />;
@@ -269,8 +277,30 @@ export default function VoiceAssistant() {
           <p className="text-slate-500 text-sm mt-3">
             {loading
               ? (lang === 'fa' ? 'در حال گوش دادن...' : 'Listening...')
-              : (lang === 'fa' ? 'روی میکروفون کلیک کنید' : 'Click the microphone')}
+              : (lang === 'fa' ? 'روی میکروفون کلیک کنید یا تایپ کنید' : 'Click the microphone or type a message')}
           </p>
+
+          <form onSubmit={handleTextSubmit} className="mt-4 w-full max-w-xl flex gap-2">
+            <input
+              type="text"
+              value={textInput}
+              onChange={(e) => setTextInput(e.target.value)}
+              placeholder={lang === 'fa' ? 'پیامت رو بنویس...' : 'Type your message...'}
+              disabled={loading}
+              className="flex-1 px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white placeholder-slate-500 text-sm focus:outline-none focus:border-blue-500/50 transition-all duration-300"
+              dir="auto"
+            />
+            <button
+              type="submit"
+              disabled={!textInput.trim() || loading}
+              className="px-4 py-3 rounded-xl bg-blue-600 hover:bg-blue-700 disabled:bg-slate-700 disabled:text-slate-500 text-white text-sm font-medium transition-all duration-300"
+            >
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <line x1="22" y1="2" x2="11" y2="13"/>
+                <polygon points="22 2 15 22 11 13 2 9 22 2"/>
+              </svg>
+            </button>
+          </form>
         </div>
 
         {(transcript || history.length > 0) && (
