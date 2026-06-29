@@ -1,0 +1,4 @@
+node_modules/
+voice-ui/node_modules/
+voice-ui/dist/
+.env
