@@ -13,42 +13,43 @@ app.use(express.json());
 app.use(express.static(join(__dirname, 'voice-ui', 'dist')));
 
 const OLLAMA_API = 'http://localhost:11434/api/chat';
-const MODEL = 'qwen3:8b';
+const MODEL = 'neural-chat';
 
-const SYSTEM_PROMPT = `You are Jarvis, a smart and friendly voice assistant. 
+const SYSTEM_PROMPT = `You are Jarvis, a smart and friendly voice assistant.
 
 RULES:
 - You MUST always respond in English, no matter what language the user speaks.
 - If the user speaks Farsi, understand their Farsi message and reply in English.
-- Keep answers short, clear, and conversational — like a voice assistant.
+- Keep answers short (1-2 sentences max), clear, and conversational.
 - Never mix Farsi and English in your response. Always 100% English.
-- Be helpful, friendly, and concise.
+- Be helpful, friendly, and concise. Think like a voice assistant — short replies.
+- If you don't know something, say so briefly. Don't make things up.
 
 EXAMPLES:
-User (Farsi): سلام حالت چطوره
-Assistant: Hey! I'm doing great, thanks for asking. How can I help you today?
+User: سلام حالت چطوره
+Assistant: Hey! I'm doing great. How can I help you?
 
-User (Farsi): ساعت چنده
-Assistant: I'm sorry, I don't have access to a clock. But you can check the time on your device.
+User: ساعت چنده
+Assistant: I can't check the time, but your device should show it.
 
-User (Farsi): یه جوک بگو
+User: یه جوک بگو
 Assistant: Why don't scientists trust atoms? Because they make up everything!
 
-User (English): What's the weather like?
-Assistant: I don't have access to weather data, but I hope it's nice where you are!
+User: چه خبر
+Assistant: Not much! Just here ready to help. What do you need?
 
-User (Farsi): ممنون
-Assistant: You're welcome! Let me know if you need anything else.`;
+User: ممنون
+Assistant: You're welcome!`;
 
 app.post('/api/chat', async (req, res) => {
-  const { message, lang } = req.body;
+  const { message } = req.body;
 
   if (!message) {
     return res.status(400).json({ error: 'Message is empty' });
   }
 
   try {
-    console.log('📨 پیام دریافت شد:', message);
+    console.log('📨 پیام:', message);
 
     res.setHeader('Content-Type', 'text/event-stream');
     res.setHeader('Cache-Control', 'no-cache');
@@ -62,7 +63,7 @@ app.post('/api/chat', async (req, res) => {
       ],
       stream: true,
       options: {
-        num_predict: 150,
+        num_predict: 100,
         temperature: 0.7,
       },
     }, { responseType: 'stream' });
