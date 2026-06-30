@@ -228,9 +228,8 @@ export default function VoiceAssistant() {
       }
 
       if (fullResponse) {
-        const faText = fullResponse.split('[FA]')[1]?.split('[EN]')[0]?.trim() || fullResponse;
         setHistory(prev => [...prev, { role: 'assistant', text: fullResponse }]);
-        speakFarsi(faText);
+        speakResponse(fullResponse);
       }
     } catch (error) {
       const errMsg = `Error: ${error.message}`;
@@ -241,17 +240,39 @@ export default function VoiceAssistant() {
     }
   };
 
-  const speakFarsi = useCallback((text) => {
-    const cleanText = text.replace(/```[\s\S]*?```/g, '').trim();
-    if (!cleanText) return;
+  const speakResponse = useCallback((fullText) => {
+    const codeRemoved = fullText.replace(/```[\s\S]*?```/g, '').trim();
+    const faMatch = codeRemoved.split('[FA]')[1]?.split('[EN]')[0]?.trim();
+    const enMatch = codeRemoved.split('[EN]')[1]?.trim();
+    const faText = faMatch || codeRemoved;
+    const enText = enMatch || '';
+
+    if (!faText && !enText) return;
 
     setSpeaking(true);
-    const utterance = new SpeechSynthesisUtterance(cleanText);
-    utterance.lang = 'fa-IR';
-    utterance.rate = 0.9;
-    utterance.onend = () => setSpeaking(false);
-    utterance.onerror = () => setSpeaking(false);
-    window.speechSynthesis.speak(utterance);
+    window.speechSynthesis.cancel();
+
+    const speakFarsi = () => {
+      if (!faText) { speakEnglish(); return; }
+      const u1 = new SpeechSynthesisUtterance(faText);
+      u1.lang = 'fa-IR';
+      u1.rate = 0.9;
+      u1.onend = () => speakEnglish();
+      u1.onerror = () => speakEnglish();
+      window.speechSynthesis.speak(u1);
+    };
+
+    const speakEnglish = () => {
+      if (!enText) { setSpeaking(false); return; }
+      const u2 = new SpeechSynthesisUtterance(enText);
+      u2.lang = 'en-US';
+      u2.rate = 0.9;
+      u2.onend = () => setSpeaking(false);
+      u2.onerror = () => setSpeaking(false);
+      window.speechSynthesis.speak(u2);
+    };
+
+    speakFarsi();
   }, []);
 
   const toggleLang = () => setLang(l => l === 'fa' ? 'en' : 'fa');
