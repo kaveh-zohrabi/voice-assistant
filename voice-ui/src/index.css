@@ -1,18 +1,55 @@
 @import "tailwindcss";
 
+@font-face {
+  font-family: 'BYekan';
+  src: url('/byekan/BYekan/BYekan+.ttf') format('truetype');
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'BYekan';
+  src: url('/byekan/BYekan/BYekan+ Bold.ttf') format('truetype');
+  font-weight: bold;
+  font-style: normal;
+  font-display: swap;
+}
+
+* {
+  font-family: 'BYekan', system-ui, -apple-system, sans-serif;
+}
+
 body {
   margin: 0;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
-.scrollbar-thin::-webkit-scrollbar {
-  width: 4px;
+/* ChatGPT-style code blocks */
+pre code {
+  font-family: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', ui-monospace, monospace !important;
 }
-.scrollbar-thin::-webkit-scrollbar-track {
-  background: transparent;
+
+.scrollbar-thin::-webkit-scrollbar { width: 4px; }
+.scrollbar-thin::-webkit-scrollbar-track { background: transparent; }
+.scrollbar-thin::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 2px; }
+
+/* Smooth transitions */
+.transition-gpu {
+  will-change: transform;
+  transform: translateZ(0);
 }
-.scrollbar-thin::-webkit-scrollbar-thumb {
-  background: rgba(255,255,255,0.1);
-  border-radius: 2px;
+
+/* Custom selection */
+::selection {
+  background: rgba(96, 165, 250, 0.3);
+  color: white;
+}
+
+/* Focus ring */
+:focus-visible {
+  outline: 2px solid rgba(96, 165, 250, 0.5);
+  outline-offset: 2px;
+  border-radius: 8px;
 }
