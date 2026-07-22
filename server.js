@@ -12,8 +12,9 @@ app.use(cors());
 app.use(express.json());
 app.use(express.static(join(__dirname, 'voice-ui', 'dist')));
 
-const OLLAMA_API = 'http://localhost:11434/api/chat';
-const MODEL = 'qwen2.5:7b';
+const OLLAMA_API = 'http://localhost:20128/v1/chat/completions';
+const API_KEY = 'sk-0d6eb2ef3ddc7310-4i1sao-b0777494';
+const MODEL = 'kaveh1';
 
 const SYSTEM_PROMPT = `You are Jarvis, a smart and helpful voice assistant like ChatGPT. You understand ALL languages. Always reply in Farsi first, then English.
 
@@ -98,35 +99,37 @@ app.post('/api/chat', async (req, res) => {
       model: MODEL,
       messages: [...messages],
       stream: true,
-      options: {
-        num_predict: 500,
-        temperature: 0.7,
+      max_tokens: 500,
+      temperature: 0.7,
+    }, {
+      headers: {
+        'Authorization': `Bearer ${API_KEY}`,
+        'Content-Type': 'application/json',
       },
-    }, { responseType: 'stream' });
+      responseType: 'stream',
+    });
 
     let fullResponse = '';
-    let fullThinking = '';
 
     response.data.on('data', (chunk) => {
       const lines = chunk.toString().split('\n').filter(Boolean);
       for (const line of lines) {
+        const trimmed = line.replace(/^data: /, '');
+        if (trimmed === '[DONE]') {
+          messages.push({ role: 'assistant', content: fullResponse });
+          if (messages.length > MAX_HISTORY + 1) {
+            messages.splice(1, 1);
+          }
+          res.write('data: [DONE]\n\n');
+          res.end();
+          return;
+        }
         try {
-          const parsed = JSON.parse(line);
-          if (parsed.message?.thinking) {
-            fullThinking += parsed.message.thinking;
-            res.write(`data: ${JSON.stringify({ thinking: parsed.message.thinking })}\n\n`);
-          }
-          if (parsed.message?.content) {
-            fullResponse += parsed.message.content;
-            res.write(`data: ${JSON.stringify({ text: parsed.message.content })}\n\n`);
-          }
-          if (parsed.done) {
-            messages.push({ role: 'assistant', content: fullResponse });
-            if (messages.length > MAX_HISTORY + 1) {
-              messages.splice(1, 1);
-            }
-            res.write('data: [DONE]\n\n');
-            res.end();
+          const parsed = JSON.parse(trimmed);
+          const content = parsed.choices?.[0]?.delta?.content;
+          if (content) {
+            fullResponse += content;
+            res.write(`data: ${JSON.stringify({ text: content })}\n\n`);
           }
         } catch {}
       }
