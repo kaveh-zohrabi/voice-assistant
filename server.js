@@ -1,20 +1,24 @@
 import express from 'express';
 import axios from 'axios';
 import cors from 'cors';
+import bcrypt from 'bcryptjs';
+import jwt from 'jsonwebtoken';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
+import db from './db.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
 const app = express();
 app.use(cors());
-app.use(express.json());
+app.use(express.json({ limit: '10mb' }));
 app.use(express.static(join(__dirname, 'voice-ui', 'dist')));
 
 const OLLAMA_API = 'http://localhost:20128/v1/chat/completions';
 const API_KEY = 'sk-0d6eb2ef3ddc7310-4i1sao-b0777494';
-const MODEL = 'kaveh1';
+const MODEL = 'kaveh';
+const JWT_SECRET = 'jarvis-secret-key-2026';
 
 const SYSTEM_PROMPT = `You are Jarvis, a smart and helpful voice assistant like ChatGPT. You understand ALL languages. Always reply in Farsi first, then English.
 
@@ -39,57 +43,152 @@ For code:
 
 EXAMPLES:
 User: hi
-[FA] سلام! خوش اومدی. من جارویس هستم، دستیار صوتی هوش مصنوعی تو. هر سوالی داری بپرس، می‌تونم کمکت کنم. چه کاری از دستم برمیاد؟
+[FA] سلام! خوش اومدی. من جارویس هستم، دستیار صوتی هوش مصنوعی تو. هر سوالی داری بپرس، می‌تونم کمکت کنم.
 [EN] Hey! Welcome. I'm Jarvis, your AI voice assistant. Ask me anything!
 
 User: اسمت چیه
-[FA] من جارویس (Jarvis) هستم، یک دستیار صوتی هوش مصنوعی. اسمم از فیلم‌های Iron Man گرفته شده. می‌تونم به سوالات جواب بدم، ریاضی حل کنم، کد بنویسم، جوک بگم، و خیلی کارای دیگه انجام بدم.
-[EN] I'm Jarvis, an AI voice assistant named after the Iron Man AI. I can answer questions, do math, write code, tell jokes, and more.
+[FA] من جارویس (Jarvis) هستم، یک دستیار صوتی هوش مصنوعی. اسمم از فیلم‌های Iron Man گرفته شده.
+[EN] I'm Jarvis, an AI voice assistant named after the Iron Man AI.
 
 User: 12 * 8
 [FA] جواب ۹۶ هست. محاسبه: ۱۲ × ۸ = ۹۶.
-[EN] The answer is 96. Calculation: 12 × 8 = 96.
+[EN] The answer is 96.
 
 User: یه جوک بگو
 [FA] چرا دانشمندها به اتم‌ها اعتماد ندارن؟ چون همه چیزو می‌سازن! 😄
 [EN] Why don't scientists trust atoms? Because they make up everything! 😄
 
 User: پایتون چیه
-[FA] پایتون یک زبان برنامه‌نویسی محبوب و همه‌کاره هست که در سال ۱۹۹۱ توسط Guido van Rossum ساخته شده. ویژگی‌های اصلی پایتون: سادگی و خوانایی بالا، پشتیبانی از برنامه‌نویسی شی‌گرا و تابعی، کتابخانه‌های غنی برای علم داده، وب، هوش مصنوعی و اتوماسیون. پایتون برای مبتدی‌ها عالیه و در شرکت‌های بزرگ مثل Google و Netflix استفاده می‌شه.
-[EN] Python is a popular, versatile programming language created in 1991. It's known for simplicity, rich libraries for data science, web, AI, and automation. Used by Google, Netflix, and great for beginners.
+[FA] پایتون یک زبان برنامه‌نویسی محبوب و همه‌کاره هست که در سال ۱۹۹۱ ساخته شده. برای علم داده، وب، و هوش مصنوعی عالیه.
+[EN] Python is a popular, versatile programming language created in 1991. Great for data science, web, and AI.`;
 
-User: چی کار می‌تونی بکنی
-[FA] من می‌تونم کارهای زیادی انجام بدم: ۱) جواب سوالات در هر موضوعی بدم ۲) ریاضی و محاسبات حل کنم ۳) کد به زبان‌های مختلف بنویسم ۴) جوک و داستان بگم ۵) ترجمه کنم ۶) توضیح بدم و آموزش بدم ۷) باهات چت کنم. فقط بپرس!
-[EN] I can answer questions, do math, write code, tell jokes, translate, explain things, and chat. Just ask!
+// Auth middleware
+const auth = async (req, res, next) => {
+  const token = req.headers.authorization?.split(' ')[1];
+  if (!token) return res.status(401).json({ error: 'Unauthorized' });
+  try {
+    const decoded = jwt.verify(token, JWT_SECRET);
+    req.user = decoded;
+    next();
+  } catch {
+    res.status(401).json({ error: 'Invalid token' });
+  }
+};
 
-User: write a python function for factorial
-[FA] این تابع فاکتوریل عدد رو حساب می‌کنه:
-\`\`\`python
-def factorial(n):
-    if n == 0 or n == 1:
-        return 1
-    return n * factorial(n - 1)
-\`\`\`
-مثال: factorial(5) = 5 × 4 × 3 × 2 × 1 = 120
-[EN] This function calculates the factorial of a number recursively.`;
+// Register
+app.post('/api/register', async (req, res) => {
+  try {
+    const { name, email, password } = req.body;
+    if (!name || !email || !password) return res.status(400).json({ error: 'All fields required' });
 
-const messages = [{ role: 'system', content: SYSTEM_PROMPT }];
-const MAX_HISTORY = 10;
+    const [existing] = await db.query('SELECT id FROM users WHERE email = ?', [email]);
+    if (existing.length > 0) return res.status(400).json({ error: 'Email already exists' });
+
+    const hashed = await bcrypt.hash(password, 10);
+    const [result] = await db.query('INSERT INTO users (name, email, password) VALUES (?, ?, ?)', [name, email, hashed]);
+
+    const token = jwt.sign({ id: result.insertId, name, email }, JWT_SECRET, { expiresIn: '7d' });
+    res.json({ token, user: { id: result.insertId, name, email } });
+  } catch (error) {
+    console.error('Register error:', error);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// Login
+app.post('/api/login', async (req, res) => {
+  try {
+    const { email, password } = req.body;
+    if (!email || !password) return res.status(400).json({ error: 'Email and password required' });
+
+    const [users] = await db.query('SELECT * FROM users WHERE email = ?', [email]);
+    if (users.length === 0) return res.status(401).json({ error: 'Invalid credentials' });
+
+    const user = users[0];
+    const valid = await bcrypt.compare(password, user.password);
+    if (!valid) return res.status(401).json({ error: 'Invalid credentials' });
+
+    const token = jwt.sign({ id: user.id, name: user.name, email: user.email }, JWT_SECRET, { expiresIn: '7d' });
+    res.json({ token, user: { id: user.id, name: user.name, email: user.email } });
+  } catch (error) {
+    console.error('Login error:', error);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// Get user profile
+app.get('/api/profile', auth, async (req, res) => {
+  try {
+    const [users] = await db.query('SELECT id, name, email, created_at FROM users WHERE id = ?', [req.user.id]);
+    if (users.length === 0) return res.status(404).json({ error: 'User not found' });
+    res.json(users[0]);
+  } catch (error) {
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// Get conversations
+app.get('/api/conversations', auth, async (req, res) => {
+  try {
+    const [convos] = await db.query(
+      'SELECT c.*, (SELECT COUNT(*) FROM messages WHERE conversation_id = c.id) as message_count FROM conversations c WHERE c.user_id = ? ORDER BY c.updated_at DESC',
+      [req.user.id]
+    );
+    res.json(convos);
+  } catch (error) {
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// Create conversation
+app.post('/api/conversations', auth, async (req, res) => {
+  try {
+    const { title } = req.body;
+    const [result] = await db.query('INSERT INTO conversations (user_id, title) VALUES (?, ?)', [req.user.id, title || 'New Conversation']);
+    res.json({ id: result.insertId, title: title || 'New Conversation' });
+  } catch (error) {
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// Get messages
+app.get('/api/conversations/:id/messages', auth, async (req, res) => {
+  try {
+    const [msgs] = await db.query(
+      'SELECT * FROM messages WHERE conversation_id = ? AND conversation_id IN (SELECT id FROM conversations WHERE user_id = ?) ORDER BY created_at ASC',
+      [req.params.id, req.user.id]
+    );
+    res.json(msgs);
+  } catch (error) {
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// Delete conversation
+app.delete('/api/conversations/:id', auth, async (req, res) => {
+  try {
+    await db.query('DELETE FROM conversations WHERE id = ? AND user_id = ?', [req.params.id, req.user.id]);
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// Chat
+const chatHistories = new Map();
 
 app.post('/api/chat', async (req, res) => {
-  const { message } = req.body;
+  const { message, lang, conversationId } = req.body;
+  if (!message) return res.status(400).json({ error: 'Message is empty' });
 
-  if (!message) {
-    return res.status(400).json({ error: 'Message is empty' });
-  }
-
+  const historyKey = conversationId || 'default';
+  if (!chatHistories.has(historyKey)) chatHistories.set(historyKey, [{ role: 'system', content: SYSTEM_PROMPT }]);
+  const messages = chatHistories.get(historyKey);
   messages.push({ role: 'user', content: message });
-  if (messages.length > MAX_HISTORY + 1) {
-    messages.splice(1, 1);
-  }
+  if (messages.length > 15) messages.splice(1, 1);
 
   try {
-    console.log('📨 پیام:', message);
+    console.log('Message:', message);
 
     res.setHeader('Content-Type', 'text/event-stream');
     res.setHeader('Cache-Control', 'no-cache');
@@ -102,10 +201,7 @@ app.post('/api/chat', async (req, res) => {
       max_tokens: 500,
       temperature: 0.7,
     }, {
-      headers: {
-        'Authorization': `Bearer ${API_KEY}`,
-        'Content-Type': 'application/json',
-      },
+      headers: { 'Authorization': `Bearer ${API_KEY}`, 'Content-Type': 'application/json' },
       responseType: 'stream',
     });
 
@@ -117,9 +213,7 @@ app.post('/api/chat', async (req, res) => {
         const trimmed = line.replace(/^data: /, '');
         if (trimmed === '[DONE]') {
           messages.push({ role: 'assistant', content: fullResponse });
-          if (messages.length > MAX_HISTORY + 1) {
-            messages.splice(1, 1);
-          }
+          if (messages.length > 15) messages.splice(1, 1);
           res.write('data: [DONE]\n\n');
           res.end();
           return;
@@ -127,22 +221,31 @@ app.post('/api/chat', async (req, res) => {
         try {
           const parsed = JSON.parse(trimmed);
           const content = parsed.choices?.[0]?.delta?.content;
-          if (content) {
-            fullResponse += content;
-            res.write(`data: ${JSON.stringify({ text: content })}\n\n`);
-          }
+          if (content) { fullResponse += content; res.write(`data: ${JSON.stringify({ text: content })}\n\n`); }
         } catch {}
       }
     });
 
     response.data.on('error', (err) => {
-      console.error('❌ خطا:', err.message);
+      console.error('Error:', err.message);
       res.write(`data: ${JSON.stringify({ error: 'خطای سرویس هوش مصنوعی' })}\n\n`);
       res.end();
     });
   } catch (error) {
-    console.error('❌ خطا:', error.message);
+    console.error('Error:', error.message);
     res.status(500).json({ error: 'خطای سرویس هوش مصنوعی' });
+  }
+});
+
+// Save message to DB
+app.post('/api/messages', auth, async (req, res) => {
+  try {
+    const { conversationId, role, content } = req.body;
+    await db.query('INSERT INTO messages (conversation_id, role, content) VALUES (?, ?, ?)', [conversationId, role, content]);
+    await db.query('UPDATE conversations SET updated_at = NOW() WHERE id = ?', [conversationId]);
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ error: 'Server error' });
   }
 });
 
@@ -151,5 +254,5 @@ app.get('/{*splat}', (req, res) => {
 });
 
 app.listen(3000, () => {
-  console.log('🚀 سرور در http://localhost:3000 اجرا شد');
+  console.log('Server running at http://localhost:3000');
 });
