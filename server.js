@@ -18,7 +18,7 @@ app.use(cors());
 app.use(express.json({ limit: '10mb' }));
 app.use(express.static(join(__dirname, 'voice-ui', 'dist')));
 
-const OLLAMA_API = 'http://localhost:20128/v1/chat/completions';
+const OLLAMA_API = process.env.API_URL;
 const API_KEY = process.env.API_KEY;
 const MODEL = 'kaveh';
 const JWT_SECRET = process.env.JWT_SECRET;
