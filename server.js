@@ -240,6 +240,72 @@ app.post('/api/chat', async (req, res) => {
   }
 });
 
+// Admin middleware
+const adminAuth = async (req, res, next) => {
+  const token = req.headers.authorization?.split(' ')[1];
+  if (!token) return res.status(401).json({ error: 'Unauthorized' });
+  try {
+    const decoded = jwt.verify(token, JWT_SECRET);
+    const [users] = await db.query('SELECT role FROM users WHERE id = ?', [decoded.id]);
+    if (users.length === 0 || users[0].role !== 'admin') return res.status(403).json({ error: 'Forbidden' });
+    req.user = decoded;
+    next();
+  } catch { res.status(401).json({ error: 'Invalid token' }); }
+};
+
+// Admin: Dashboard stats
+app.get('/api/admin/stats', adminAuth, async (req, res) => {
+  try {
+    const [[users]] = await db.query('SELECT COUNT(*) as count FROM users');
+    const [[conversations]] = await db.query('SELECT COUNT(*) as count FROM conversations');
+    const [[messages]] = await db.query('SELECT COUNT(*) as count FROM messages');
+    const [recentUsers] = await db.query('SELECT id, name, email, created_at FROM users ORDER BY created_at DESC LIMIT 5');
+    const [recentConversations] = await db.query('SELECT c.*, u.name as user_name FROM conversations c JOIN users u ON c.user_id = u.id ORDER BY c.created_at DESC LIMIT 5');
+    res.json({ users: users.count, conversations: conversations.count, messages: messages.count, recentUsers, recentConversations });
+  } catch (error) { res.status(500).json({ error: 'Server error' }); }
+});
+
+// Admin: List all users
+app.get('/api/admin/users', adminAuth, async (req, res) => {
+  try {
+    const [users] = await db.query('SELECT id, name, email, role, created_at FROM users ORDER BY created_at DESC');
+    res.json(users);
+  } catch (error) { res.status(500).json({ error: 'Server error' }); }
+});
+
+// Admin: Update user role
+app.put('/api/admin/users/:id/role', adminAuth, async (req, res) => {
+  try {
+    const { role } = req.body;
+    await db.query('UPDATE users SET role = ? WHERE id = ?', [role, req.params.id]);
+    res.json({ success: true });
+  } catch (error) { res.status(500).json({ error: 'Server error' }); }
+});
+
+// Admin: Delete user
+app.delete('/api/admin/users/:id', adminAuth, async (req, res) => {
+  try {
+    await db.query('DELETE FROM users WHERE id = ?', [req.params.id]);
+    res.json({ success: true });
+  } catch (error) { res.status(500).json({ error: 'Server error' }); }
+});
+
+// Admin: List all conversations
+app.get('/api/admin/conversations', adminAuth, async (req, res) => {
+  try {
+    const [convos] = await db.query('SELECT c.*, u.name as user_name, u.email as user_email, (SELECT COUNT(*) FROM messages WHERE conversation_id = c.id) as message_count FROM conversations c JOIN users u ON c.user_id = u.id ORDER BY c.created_at DESC');
+    res.json(convos);
+  } catch (error) { res.status(500).json({ error: 'Server error' }); }
+});
+
+// Admin: Delete conversation
+app.delete('/api/admin/conversations/:id', adminAuth, async (req, res) => {
+  try {
+    await db.query('DELETE FROM conversations WHERE id = ?', [req.params.id]);
+    res.json({ success: true });
+  } catch (error) { res.status(500).json({ error: 'Server error' }); }
+});
+
 // Save message to DB
 app.post('/api/messages', auth, async (req, res) => {
   try {

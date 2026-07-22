@@ -39,7 +39,7 @@ export default function Auth({ onLogin }) {
         localStorage.setItem('jarvis_user', JSON.stringify(data.user));
         onLogin(data.user);
       }
-    } catch (err) {
+    } catch {
       setError('خطا در اتصال به سرور');
     }
     setLoading(false);
