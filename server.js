@@ -3,9 +3,12 @@ import axios from 'axios';
 import cors from 'cors';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
+import dotenv from 'dotenv';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import db from './db.js';
+
+dotenv.config();
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -16,9 +19,9 @@ app.use(express.json({ limit: '10mb' }));
 app.use(express.static(join(__dirname, 'voice-ui', 'dist')));
 
 const OLLAMA_API = 'http://localhost:20128/v1/chat/completions';
-const API_KEY = 'sk-0d6eb2ef3ddc7310-4i1sao-b0777494';
+const API_KEY = process.env.API_KEY;
 const MODEL = 'kaveh';
-const JWT_SECRET = 'jarvis-secret-key-2026';
+const JWT_SECRET = process.env.JWT_SECRET;
 
 const SYSTEM_PROMPT = `You are Jarvis, a smart and helpful voice assistant like ChatGPT. You understand ALL languages. Always reply in Farsi first, then English.
 
