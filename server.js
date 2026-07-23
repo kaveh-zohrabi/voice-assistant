@@ -238,14 +238,20 @@ app.delete('/api/conversations/:id', auth, async (req, res) => {
 const chatHistories = new Map();
 
 app.post('/api/chat', async (req, res) => {
-  const { message, lang, conversationId } = req.body;
+  const { message, lang, conversationId, context } = req.body;
   if (!message) return res.status(400).json({ error: 'Message is empty' });
 
-  const historyKey = conversationId || 'default';
-  if (!chatHistories.has(historyKey)) chatHistories.set(historyKey, [{ role: 'system', content: SYSTEM_PROMPT }]);
-  const messages = chatHistories.get(historyKey);
-  messages.push({ role: 'user', content: message });
-  if (messages.length > 15) messages.splice(1, 1);
+  // Use context from frontend if provided, otherwise use server-side history
+  let messages;
+  if (context && Array.isArray(context)) {
+    messages = context;
+  } else {
+    const historyKey = conversationId || 'default';
+    if (!chatHistories.has(historyKey)) chatHistories.set(historyKey, [{ role: 'system', content: SYSTEM_PROMPT }]);
+    messages = chatHistories.get(historyKey);
+    messages.push({ role: 'user', content: message });
+    if (messages.length > 15) messages.splice(1, 1);
+  }
 
   try {
     console.log('Message:', message);
