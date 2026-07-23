@@ -241,9 +241,9 @@ app.post('/api/chat', async (req, res) => {
   const { message, lang, conversationId, context } = req.body;
   if (!message) return res.status(400).json({ error: 'Message is empty' });
 
-  // Use context from frontend if provided, otherwise use server-side history
+  // Use context from frontend if provided (for voice chat), otherwise use server-side history
   let messages;
-  if (context && Array.isArray(context)) {
+  if (context && Array.isArray(context) && context.length > 0) {
     messages = context;
   } else {
     const historyKey = conversationId || 'default';
